@@ -11,7 +11,6 @@ function StudyTracker() {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [confirmReset, setConfirmReset] = useState(false);
   const [view, setView] = useState('tracker');
 
   // Plugin UI state. `enabledPlugins` (persisted) maps trackId -> [pluginId].
@@ -85,11 +84,6 @@ function StudyTracker() {
     });
   };
 
-  const resetAll = async () => {
-    setHistory({});
-    await persist(STORAGE_KEY, {});
-    setConfirmReset(false);
-  };
 
   const addTrack = (name, category, color) => {
     setTracks((prev) => {
@@ -497,25 +491,6 @@ function StudyTracker() {
           <div style={{ fontSize: 12, marginTop: 8, color: '#B3261E' }}>
             {errorMsg}
           </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 40, fontSize: 12, opacity: 0.4 }}>
-        {confirmReset ? (
-          <span>
-            Clear all saved progress?{' '}
-            <button onClick={resetAll} style={{ textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 0 }}>
-              Yes, reset
-            </button>{' '}
-            ·{' '}
-            <button onClick={() => setConfirmReset(false)} style={{ textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 0 }}>
-              Cancel
-            </button>
-          </span>
-        ) : (
-          <button onClick={() => setConfirmReset(true)} style={{ textDecoration: 'underline', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 0 }}>
-            Reset all data
-          </button>
         )}
       </div>
       </>
