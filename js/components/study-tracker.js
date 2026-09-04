@@ -173,6 +173,7 @@ function StudyTracker() {
       <div style={{ display: 'flex', gap: 24, marginBottom: 32, borderBottom: '1px solid #E1E4EA' }}>
         {[
           { id: 'tracker', label: 'Tracker' },
+          { id: 'diary', label: 'Diary' },
           { id: 'analysis', label: 'Analysis' },
           { id: 'manage', label: 'Curriculum' },
         ].map((tab) => (
@@ -519,6 +520,8 @@ function StudyTracker() {
       </div>
       </>
       )}
+
+      {view === 'diary' && <Diary history={history} tracks={tracks} todayStr={todayStr} />}
 
       {view === 'analysis' && <Analysis history={history} todayStr={todayStr} tracks={tracks} />}
 
