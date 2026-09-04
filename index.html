@@ -34,7 +34,7 @@ function ChevronRight(props) {
   );
 }
 
-const TRACKS = [
+const DEFAULT_TRACKS = [
   { id: 'it_passport', name: 'IT Passport', category: 'Core study', color: '#3B4C9E' },
   { id: 'coding', name: 'Coding', category: 'Core study', color: '#2F7D5C' },
   { id: 'jp_book', name: 'Japanese book reading', category: 'Sub study', color: '#9C3D54' },
@@ -44,10 +44,31 @@ const TRACKS = [
   { id: 'jp_blog', name: 'Japanese essay blog (朝刊太郎)', category: 'Output', color: '#6B4A8A' },
 ];
 
+const TRACK_COLOR_PALETTE = [
+  '#3B4C9E', '#2F7D5C', '#9C3D54', '#C08A2E', '#3E7C86', '#C1613B', '#6B4A8A',
+  '#4E7A3D', '#8A4A6B', '#3A6B8A', '#8A5A2E', '#5A5A8A',
+];
+
 const CATEGORIES = ['Core study', 'Sub study', 'Output'];
 const DAYS_SHOWN = 14;
 const STORAGE_KEY = 'tracker-history';
+const TRACKS_STORAGE_KEY = 'tracker-tracks';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function slugifyTrackName(name) {
+  const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return base || 'track';
+}
+function uniqueTrackId(name, existingTracks) {
+  const base = slugifyTrackName(name);
+  let id = base;
+  let n = 2;
+  while (existingTracks.some((t) => t.id === id)) {
+    id = `${base}_${n}`;
+    n++;
+  }
+  return id;
+}
 
 function isoDate(d) {
   const y = d.getFullYear();
@@ -110,25 +131,25 @@ const RANGE_OPTIONS = [
 ];
 const HEATMAP_WEEKS = 12;
 
-function rangeStats(history, dates) {
+function rangeStats(history, dates, tracks) {
   const perTrack = {};
-  TRACKS.forEach((t) => { perTrack[t.id] = 0; });
+  tracks.forEach((t) => { perTrack[t.id] = 0; });
   let total = 0;
   dates.forEach((d) => {
-    TRACKS.forEach((t) => {
+    tracks.forEach((t) => {
       if (history[d]?.[t.id]?.done) {
         perTrack[t.id] += 1;
         total += 1;
       }
     });
   });
-  return { perTrack, total, possible: dates.length * TRACKS.length };
+  return { perTrack, total, possible: dates.length * tracks.length };
 }
 
-function categoryStats(history, dates) {
+function categoryStats(history, dates, tracks) {
   const stats = {};
   CATEGORIES.forEach((cat) => {
-    const catTracks = TRACKS.filter((t) => t.category === cat);
+    const catTracks = tracks.filter((t) => t.category === cat);
     let done = 0;
     dates.forEach((d) => {
       catTracks.forEach((t) => {
@@ -140,7 +161,7 @@ function categoryStats(history, dates) {
   return stats;
 }
 
-function heatmapWeeks(history, todayStr, weeks) {
+function heatmapWeeks(history, todayStr, weeks, tracks) {
   const end = parseLocal(todayStr);
   const endDay = end.getDay();
   const gridEnd = new Date(end);
@@ -152,7 +173,7 @@ function heatmapWeeks(history, todayStr, weeks) {
     d.setDate(d.getDate() - i);
     const dateStr = isoDate(d);
     const inRange = dateStr <= todayStr;
-    const count = inRange ? TRACKS.filter((t) => history[dateStr]?.[t.id]?.done).length : null;
+    const count = inRange ? tracks.filter((t) => history[dateStr]?.[t.id]?.done).length : null;
     cells.push({ dateStr, count });
   }
   const columns = [];
@@ -160,20 +181,20 @@ function heatmapWeeks(history, todayStr, weeks) {
   return columns;
 }
 
-function heatColor(count) {
+function heatColor(count, totalTracks) {
   if (count === null) return 'transparent';
   if (count === 0) return '#E9EBEF';
-  const alpha = 0.28 + (count / TRACKS.length) * 0.72;
+  const alpha = 0.28 + (count / Math.max(1, totalTracks)) * 0.72;
   return `rgba(27, 31, 42, ${alpha.toFixed(2)})`;
 }
 
-function Analysis({ history, todayStr }) {
+function Analysis({ history, todayStr, tracks }) {
   const [rangeDays, setRangeDays] = useState(30);
   const dates = getLastNDates(rangeDays, todayStr);
-  const { perTrack, total, possible } = rangeStats(history, dates);
-  const catStats = categoryStats(history, dates);
-  const weeks = heatmapWeeks(history, todayStr, HEATMAP_WEEKS);
-  const maxTrackCount = Math.max(1, ...TRACKS.map((t) => perTrack[t.id]));
+  const { perTrack, total, possible } = rangeStats(history, dates, tracks);
+  const catStats = categoryStats(history, dates, tracks);
+  const weeks = heatmapWeeks(history, todayStr, HEATMAP_WEEKS, tracks);
+  const maxTrackCount = Math.max(1, ...tracks.map((t) => perTrack[t.id]));
 
   return (
     <div>
@@ -211,7 +232,7 @@ function Analysis({ history, todayStr }) {
 
       <div style={{ marginBottom: 36 }}>
         <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>By track</h2>
-        {TRACKS.map((t) => {
+        {tracks.map((t) => {
           const count = perTrack[t.id];
           const pct = dates.length ? Math.round((count / dates.length) * 100) : 0;
           const barPct = Math.round((count / maxTrackCount) * 100);
@@ -253,8 +274,8 @@ function Analysis({ history, todayStr }) {
               {col.map((cell) => (
                 <div
                   key={cell.dateStr}
-                  title={cell.count === null ? '' : `${cell.dateStr}: ${cell.count}/${TRACKS.length}`}
-                  style={{ width: 11, height: 11, borderRadius: 2, background: heatColor(cell.count) }}
+                  title={cell.count === null ? '' : `${cell.dateStr}: ${cell.count}/${tracks.length}`}
+                  style={{ width: 11, height: 11, borderRadius: 2, background: heatColor(cell.count, tracks.length) }}
                 />
               ))}
             </div>
@@ -264,7 +285,7 @@ function Analysis({ history, todayStr }) {
 
       <div>
         <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Current streaks</h2>
-        {TRACKS.slice()
+        {tracks.slice()
           .sort((a, b) => computeStreak(history, b.id, todayStr) - computeStreak(history, a.id, todayStr))
           .map((t) => {
             const streak = computeStreak(history, t.id, todayStr);
@@ -282,9 +303,159 @@ function Analysis({ history, todayStr }) {
   );
 }
 
+const labelStyle = { display: 'block', fontSize: 11, opacity: 0.5, marginBottom: 6 };
+const inputStyle = {
+  width: '100%',
+  fontFamily: 'IBM Plex Mono, monospace',
+  fontSize: 13,
+  padding: '8px 10px',
+  border: '1px solid #E1E4EA',
+  borderRadius: 4,
+  background: '#FDFDFE',
+  color: 'inherit',
+  outline: 'none',
+};
+function linkBtnStyle(color, opacity) {
+  return {
+    textDecoration: 'underline',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color,
+    opacity: opacity === undefined ? 1 : opacity,
+    font: 'inherit',
+    padding: 0,
+    fontSize: 12,
+  };
+}
+
+function Manage({ tracks, categories, onAdd, onRemove }) {
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState(categories[0]);
+  const [color, setColor] = useState(TRACK_COLOR_PALETTE[tracks.length % TRACK_COLOR_PALETTE.length]);
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onAdd(trimmed, category, color);
+    setName('');
+    setColor(TRACK_COLOR_PALETTE[(tracks.length + 1) % TRACK_COLOR_PALETTE.length]);
+  };
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Curriculum</h2>
+
+      <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #E1E4EA', background: '#FFFFFF', marginBottom: 32 }}>
+        {tracks.length === 0 && (
+          <div style={{ padding: 16, fontSize: 13, opacity: 0.5 }}>
+            No curriculum items yet — add one below.
+          </div>
+        )}
+        {categories.map((cat) => {
+          const catTracks = tracks.filter((t) => t.category === cat);
+          if (!catTracks.length) return null;
+          return (
+            <div key={cat}>
+              <div style={{ padding: '8px 16px', fontSize: 12, opacity: 0.5, background: '#EFF1F4' }}>
+                {cat}
+              </div>
+              {catTracks.map((t) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: '1px solid #EDEFF2' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Newsreader, serif' }}>{t.name}</div>
+                  {confirmRemoveId === t.id ? (
+                    <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                      <button onClick={() => { onRemove(t.id); setConfirmRemoveId(null); }} style={linkBtnStyle('#B3261E')}>
+                        Remove
+                      </button>
+                      {' · '}
+                      <button onClick={() => setConfirmRemoveId(null)} style={linkBtnStyle('inherit', 0.6)}>
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button onClick={() => setConfirmRemoveId(t.id)} style={linkBtnStyle('inherit', 0.4)}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Add new</h2>
+      <form onSubmit={handleAdd} style={{ border: '1px solid #E1E4EA', borderRadius: 6, padding: 16, background: '#FFFFFF' }}>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Piano practice"
+            style={inputStyle}
+          />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Category</label>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ marginBottom: 18 }}>
+          <label style={labelStyle}>Color</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {TRACK_COLOR_PALETTE.map((c) => (
+              <button
+                type="button"
+                key={c}
+                onClick={() => setColor(c)}
+                aria-label={`Choose color ${c}`}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  background: c,
+                  border: color === c ? '2px solid #1B1F2A' : '2px solid transparent',
+                  boxShadow: color === c ? '0 0 0 2px #fff inset' : 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={!name.trim()}
+          style={{
+            fontFamily: 'IBM Plex Mono, monospace',
+            fontSize: 12,
+            padding: '8px 16px',
+            borderRadius: 4,
+            border: '1px solid #1B1F2A',
+            background: name.trim() ? '#1B1F2A' : '#E1E4EA',
+            color: name.trim() ? '#F5F6F8' : '#9199A6',
+            cursor: name.trim() ? 'pointer' : 'default',
+          }}
+        >
+          Add to curriculum
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function StudyTracker() {
   const todayStr = isoDate(new Date());
   const [history, setHistory] = useState({});
+  const [tracks, setTracks] = useState(DEFAULT_TRACKS);
   const [loaded, setLoaded] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [saving, setSaving] = useState(false);
@@ -295,8 +466,15 @@ function StudyTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const result = await storage.get(STORAGE_KEY);
-        if (result && result.value) setHistory(JSON.parse(result.value));
+        const [historyResult, tracksResult] = await Promise.all([
+          storage.get(STORAGE_KEY),
+          storage.get(TRACKS_STORAGE_KEY),
+        ]);
+        if (historyResult && historyResult.value) setHistory(JSON.parse(historyResult.value));
+        if (tracksResult && tracksResult.value) {
+          const parsedTracks = JSON.parse(tracksResult.value);
+          if (Array.isArray(parsedTracks) && parsedTracks.length) setTracks(parsedTracks);
+        }
       } catch (e) {
         setHistory({});
       } finally {
@@ -305,10 +483,10 @@ function StudyTracker() {
     })();
   }, []);
 
-  const persist = useCallback(async (nextHistory) => {
+  const persist = useCallback(async (key, value) => {
     setSaving(true);
     try {
-      const result = await storage.set(STORAGE_KEY, JSON.stringify(nextHistory));
+      const result = await storage.set(key, JSON.stringify(value));
       if (!result) setErrorMsg('Could not save — your last change may not persist.');
       else setErrorMsg('');
     } catch (e) {
@@ -325,7 +503,7 @@ function StudyTracker() {
       entry.done = !entry.done;
       day[trackId] = entry;
       const next = { ...prev, [dateStr]: day };
-      persist(next);
+      persist(STORAGE_KEY, next);
       return next;
     });
   };
@@ -337,15 +515,32 @@ function StudyTracker() {
       entry.note = note;
       day[trackId] = entry;
       const next = { ...prev, [dateStr]: day };
-      persist(next);
+      persist(STORAGE_KEY, next);
       return next;
     });
   };
 
   const resetAll = async () => {
     setHistory({});
-    await persist({});
+    await persist(STORAGE_KEY, {});
     setConfirmReset(false);
+  };
+
+  const addTrack = (name, category, color) => {
+    setTracks((prev) => {
+      const id = uniqueTrackId(name, prev);
+      const next = [...prev, { id, name, category, color }];
+      persist(TRACKS_STORAGE_KEY, next);
+      return next;
+    });
+  };
+
+  const removeTrack = (trackId) => {
+    setTracks((prev) => {
+      const next = prev.filter((t) => t.id !== trackId);
+      persist(TRACKS_STORAGE_KEY, next);
+      return next;
+    });
   };
 
   const shiftSelectedDate = (delta) => {
@@ -358,7 +553,7 @@ function StudyTracker() {
   };
 
   const dates = getLastNDates(DAYS_SHOWN, todayStr);
-  const doneCountForSelected = TRACKS.filter((t) => history[selectedDate]?.[t.id]?.done).length;
+  const doneCountForSelected = tracks.filter((t) => history[selectedDate]?.[t.id]?.done).length;
 
   if (!loaded) {
     return (
@@ -384,6 +579,7 @@ function StudyTracker() {
         {[
           { id: 'tracker', label: 'Tracker' },
           { id: 'analysis', label: 'Analysis' },
+          { id: 'manage', label: 'Curriculum' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -411,7 +607,7 @@ function StudyTracker() {
       {CATEGORIES.map((cat) => (
         <div key={cat} style={{ marginBottom: 36 }}>
           <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>{cat}</h2>
-          {TRACKS.filter((t) => t.category === cat).map((track) => {
+          {tracks.filter((t) => t.category === cat).map((track) => {
             const streak = computeStreak(history, track.id, todayStr);
             const gridCols = `repeat(${dates.length}, 24px) 20px`;
             return (
@@ -508,7 +704,7 @@ function StudyTracker() {
               <div style={{ padding: '8px 16px', fontSize: 12, opacity: 0.5, background: '#EFF1F4' }}>
                 {cat}
               </div>
-              {TRACKS.filter((t) => t.category === cat).map((track) => {
+              {tracks.filter((t) => t.category === cat).map((track) => {
                 const entry = history[selectedDate]?.[track.id] || { done: false, note: '' };
                 return (
                   <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: '1px solid #EDEFF2' }}>
@@ -546,7 +742,7 @@ function StudyTracker() {
         </div>
 
         <div style={{ fontSize: 12, opacity: 0.4, marginTop: 12 }}>
-          {doneCountForSelected} of {TRACKS.length} done{saving ? ' · saving…' : ''}
+          {doneCountForSelected} of {tracks.length} done{saving ? ' · saving…' : ''}
         </div>
         {errorMsg && (
           <div style={{ fontSize: 12, marginTop: 8, color: '#B3261E' }}>
@@ -576,7 +772,11 @@ function StudyTracker() {
       </>
       )}
 
-      {view === 'analysis' && <Analysis history={history} todayStr={todayStr} />}
+      {view === 'analysis' && <Analysis history={history} todayStr={todayStr} tracks={tracks} />}
+
+      {view === 'manage' && (
+        <Manage tracks={tracks} categories={CATEGORIES} onAdd={addTrack} onRemove={removeTrack} />
+      )}
       </div>
     </div>
   );
