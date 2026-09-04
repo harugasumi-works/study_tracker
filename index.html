@@ -35,6 +35,9 @@
   js/icons.js           → small SVG icon components
   js/plugin-system.js   → generic plugin registry + /plugin loader
   js/components/*.js    → Analysis, Manage, Diary, StudyTracker
+                           (study-tracker-logic.js must load before
+                           study-tracker-view.js: the view calls the
+                           useTrackerState() hook the logic file defines)
   js/app.js             → mounts <StudyTracker /> (last, always)
 -->
 <script type="text/babel" data-presets="react" src="js/react-globals.js"></script>
@@ -45,7 +48,8 @@
 <script type="text/babel" data-presets="react" src="js/components/analysis.js"></script>
 <script type="text/babel" data-presets="react" src="js/components/manage.js"></script>
 <script type="text/babel" data-presets="react" src="js/components/diary.js"></script>
-<script type="text/babel" data-presets="react" src="js/components/study-tracker.js"></script>
+<script type="text/babel" data-presets="react" src="js/components/study-tracker-logic.js"></script>
+<script type="text/babel" data-presets="react" src="js/components/study-tracker-view.js"></script>
 <script type="text/babel" data-presets="react" src="js/app.js"></script>
 </body>
 </html>
