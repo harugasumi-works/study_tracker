@@ -19,6 +19,97 @@
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useCallback } = React;
 
+// ---------------------------------------------------------------------------
+// Plugin system
+//
+// Generic, path-based plugin loading: this app doesn't know "blog" exists.
+// It fetches /plugin/manifest.json, loads whatever files are listed there,
+// transforms them with Babel (so plugins can use JSX), and executes them.
+// Each plugin file registers itself against window.AppPlugins. Any track
+// can then adopt any registered plugin — the loader itself has no idea
+// which tracks a plugin is meant for.
+// ---------------------------------------------------------------------------
+window.AppPlugins = window.AppPlugins || {
+  _registry: new Map(),
+  // Plugin shape: { id, name, Panel, hasEntry? }
+  //   id        — unique string
+  //   name      — short display name for the enable-menu and toggle pill
+  //   Panel     — React component, receives { track, date }
+  //   hasEntry  — optional (track, date) => boolean, used to show a dot
+  //               on the collapsed toggle pill when there's data logged
+  register(def) {
+    if (!def || !def.id || !def.Panel) {
+      console.error('AppPlugins.register: invalid plugin definition', def);
+      return;
+    }
+    this._registry.set(def.id, def);
+    window.dispatchEvent(new CustomEvent('app-plugin-registered', { detail: def.id }));
+  },
+  list() {
+    return Array.from(this._registry.values());
+  },
+  get(id) {
+    return this._registry.get(id);
+  },
+};
+
+const PLUGIN_MANIFEST_URL = 'plugin/manifest.json';
+
+async function loadPlugins() {
+  try {
+    const manifestRes = await fetch(PLUGIN_MANIFEST_URL);
+    if (!manifestRes.ok) return;
+    const manifest = await manifestRes.json();
+    if (!Array.isArray(manifest)) return;
+    for (const entry of manifest) {
+      const src = typeof entry === 'string' ? entry : entry && entry.src;
+      if (!src) continue;
+      try {
+        const codeRes = await fetch(`plugin/${src}`);
+        if (!codeRes.ok) { console.error(`Plugin fetch failed: ${src}`); continue; }
+        const rawCode = await codeRes.text();
+        const { code } = Babel.transform(rawCode, { presets: ['react'], filename: src });
+        const scriptEl = document.createElement('script');
+        scriptEl.type = 'text/javascript';
+        scriptEl.text = code;
+        document.body.appendChild(scriptEl);
+      } catch (err) {
+        console.error(`Failed to load plugin "${src}":`, err);
+      }
+    }
+  } catch (err) {
+    // No manifest reachable (e.g. the app was opened straight from disk
+    // instead of a server). The core tracker works fine with no plugins.
+  }
+}
+loadPlugins();
+
+function usePluginList() {
+  const [plugins, setPlugins] = useState(() => window.AppPlugins.list());
+  useEffect(() => {
+    const handler = () => setPlugins(window.AppPlugins.list());
+    window.addEventListener('app-plugin-registered', handler);
+    return () => window.removeEventListener('app-plugin-registered', handler);
+  }, []);
+  return plugins;
+}
+
+function PlusIcon(props) {
+  return (
+    <svg width={props.size || 12} height={props.size || 12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+function ChevronDown(props) {
+  return (
+    <svg width={props.size || 12} height={props.size || 12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 function ChevronLeft(props) {
   return (
     <svg width={props.size || 18} height={props.size || 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -53,6 +144,7 @@ const CATEGORIES = ['Core study', 'Sub study', 'Output'];
 const DAYS_SHOWN = 14;
 const STORAGE_KEY = 'tracker-history';
 const TRACKS_STORAGE_KEY = 'tracker-tracks';
+const PLUGIN_ENABLED_KEY = 'tracker-plugin-enabled';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function slugifyTrackName(name) {
@@ -463,17 +555,31 @@ function StudyTracker() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [view, setView] = useState('tracker');
 
+  // Plugin UI state. `enabledPlugins` (persisted) maps trackId -> [pluginId].
+  // `openPanels` (session-only) tracks which pull-down panels are currently
+  // expanded, keyed by `${trackId}:${pluginId}`. `menuTrackId` is which
+  // track's hover "+" enable-menu is currently open.
+  const plugins = usePluginList();
+  const [enabledPlugins, setEnabledPlugins] = useState({});
+  const [openPanels, setOpenPanels] = useState(() => new Set());
+  const [menuTrackId, setMenuTrackId] = useState(null);
+  const [hoveredTrackId, setHoveredTrackId] = useState(null);
+
   useEffect(() => {
     (async () => {
       try {
-        const [historyResult, tracksResult] = await Promise.all([
+        const [historyResult, tracksResult, pluginEnabledResult] = await Promise.all([
           storage.get(STORAGE_KEY),
           storage.get(TRACKS_STORAGE_KEY),
+          storage.get(PLUGIN_ENABLED_KEY),
         ]);
         if (historyResult && historyResult.value) setHistory(JSON.parse(historyResult.value));
         if (tracksResult && tracksResult.value) {
           const parsedTracks = JSON.parse(tracksResult.value);
           if (Array.isArray(parsedTracks) && parsedTracks.length) setTracks(parsedTracks);
+        }
+        if (pluginEnabledResult && pluginEnabledResult.value) {
+          setEnabledPlugins(JSON.parse(pluginEnabledResult.value));
         }
       } catch (e) {
         setHistory({});
@@ -539,6 +645,36 @@ function StudyTracker() {
     setTracks((prev) => {
       const next = prev.filter((t) => t.id !== trackId);
       persist(TRACKS_STORAGE_KEY, next);
+      return next;
+    });
+  };
+
+  const togglePluginForTrack = (trackId, pluginId) => {
+    setEnabledPlugins((prev) => {
+      const current = prev[trackId] || [];
+      const nextForTrack = current.includes(pluginId)
+        ? current.filter((id) => id !== pluginId)
+        : [...current, pluginId];
+      const next = { ...prev, [trackId]: nextForTrack };
+      persist(PLUGIN_ENABLED_KEY, next);
+      return next;
+    });
+    // Collapse the panel if the plugin was just disabled.
+    setOpenPanels((prev) => {
+      const key = `${trackId}:${pluginId}`;
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
+
+  const togglePanelOpen = (trackId, pluginId) => {
+    const key = `${trackId}:${pluginId}`;
+    setOpenPanels((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -610,15 +746,136 @@ function StudyTracker() {
           {tracks.filter((t) => t.category === cat).map((track) => {
             const streak = computeStreak(history, track.id, todayStr);
             const gridCols = `repeat(${dates.length}, 24px) 20px`;
+            const trackEnabledPlugins = (enabledPlugins[track.id] || [])
+              .map((id) => window.AppPlugins.get(id))
+              .filter(Boolean);
+            const isHovered = hoveredTrackId === track.id;
+            const isMenuOpen = menuTrackId === track.id;
             return (
-              <div key={track.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 24 }}>
-                <div style={{ width: 150, flexShrink: 0, paddingTop: 4 }}>
-                  <div style={{ fontFamily: 'Newsreader, serif', fontSize: 15, lineHeight: 1.3 }}>
-                    {track.name}
+              <div key={track.id} style={{ marginBottom: 24 }}>
+              <div
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}
+                onMouseEnter={() => setHoveredTrackId(track.id)}
+                onMouseLeave={() => setHoveredTrackId((prev) => (prev === track.id ? null : prev))}
+              >
+                <div style={{ width: 150, flexShrink: 0, paddingTop: 4, position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontFamily: 'Newsreader, serif', fontSize: 15, lineHeight: 1.3 }}>
+                      {track.name}
+                    </div>
+                    <button
+                      onClick={() => setMenuTrackId((prev) => (prev === track.id ? null : track.id))}
+                      aria-label={`Manage plugins for ${track.name}`}
+                      title="Plugins"
+                      style={{
+                        width: 15,
+                        height: 15,
+                        borderRadius: '50%',
+                        border: '1px solid #C7CBD4',
+                        background: '#FFFFFF',
+                        color: '#6B7280',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        padding: 0,
+                        flexShrink: 0,
+                        opacity: isHovered || isMenuOpen ? 1 : 0,
+                        transition: 'opacity 0.12s ease',
+                      }}
+                    >
+                      <PlusIcon size={9} />
+                    </button>
                   </div>
                   <div style={{ fontSize: 10, marginTop: 2, color: track.color, opacity: 0.85 }}>
                     {streak > 0 ? `${streak}-day streak` : '—'}
                   </div>
+                  {trackEnabledPlugins.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                      {trackEnabledPlugins.map((plugin) => {
+                        const key = `${track.id}:${plugin.id}`;
+                        const open = openPanels.has(key);
+                        const hasEntry = typeof plugin.hasEntry === 'function'
+                          ? plugin.hasEntry(track, selectedDate)
+                          : false;
+                        return (
+                          <button
+                            key={plugin.id}
+                            onClick={() => togglePanelOpen(track.id, plugin.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 3,
+                              fontFamily: 'IBM Plex Mono, monospace',
+                              fontSize: 10,
+                              padding: '2px 6px',
+                              borderRadius: 10,
+                              border: `1px solid ${open ? track.color : '#E1E4EA'}`,
+                              background: open ? `${track.color}14` : 'transparent',
+                              color: 'inherit',
+                              opacity: 0.85,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {hasEntry && (
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: track.color, display: 'inline-block' }} />
+                            )}
+                            {plugin.name}
+                            <ChevronDown size={9} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {isMenuOpen && (
+                    <div
+                      onClick={() => setMenuTrackId(null)}
+                      style={{ position: 'fixed', inset: 0, zIndex: 4 }}
+                    />
+                  )}
+                  {isMenuOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        marginTop: 4,
+                        zIndex: 5,
+                        width: 180,
+                        background: '#FFFFFF',
+                        border: '1px solid #E1E4EA',
+                        borderRadius: 6,
+                        boxShadow: '0 4px 14px rgba(27,31,42,0.12)',
+                        padding: 8,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6, padding: '0 4px' }}>
+                        Plugins
+                      </div>
+                      {plugins.length === 0 && (
+                        <div style={{ fontSize: 11, opacity: 0.4, padding: '4px 4px' }}>
+                          None available
+                        </div>
+                      )}
+                      {plugins.map((plugin) => {
+                        const active = (enabledPlugins[track.id] || []).includes(plugin.id);
+                        return (
+                          <label
+                            key={plugin.id}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 4px', cursor: 'pointer' }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => togglePluginForTrack(track.id, plugin.id)}
+                              style={{ margin: 0, cursor: 'pointer' }}
+                            />
+                            {plugin.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: gridCols, alignItems: 'center', position: 'relative', height: 28 }}>
@@ -674,6 +931,38 @@ function StudyTracker() {
                     <div />
                   </div>
                 </div>
+              </div>
+              {trackEnabledPlugins.map((plugin) => {
+                const key = `${track.id}:${plugin.id}`;
+                if (!openPanels.has(key)) return null;
+                return (
+                  <div
+                    key={plugin.id}
+                    style={{
+                      marginTop: 8,
+                      marginLeft: 166,
+                      border: '1px solid #E1E4EA',
+                      borderRadius: 6,
+                      background: '#FFFFFF',
+                      padding: '10px 14px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, opacity: 0.5 }}>
+                        {plugin.name} · {selectedDate === todayStr ? 'Today' : formatFullDate(selectedDate)}
+                      </div>
+                      <button
+                        onClick={() => togglePanelOpen(track.id, plugin.id)}
+                        aria-label={`Collapse ${plugin.name} panel`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.4, padding: 0 }}
+                      >
+                        <ChevronDown size={12} />
+                      </button>
+                    </div>
+                    <plugin.Panel track={track} date={selectedDate} />
+                  </div>
+                );
+              })}
               </div>
             );
           })}
