@@ -4,8 +4,6 @@ function Analysis({ history, todayStr, tracks }) {
   const { perTrack, total, possible } = rangeStats(history, dates, tracks);
   const catStats = categoryStats(history, dates, tracks);
   const weeks = heatmapWeeks(history, todayStr, HEATMAP_WEEKS, tracks);
-  const maxTrackCount = Math.max(1, ...tracks.map((t) => perTrack[t.id]));
-
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -45,7 +43,7 @@ function Analysis({ history, todayStr, tracks }) {
         {tracks.map((t) => {
           const count = perTrack[t.id];
           const pct = dates.length ? Math.round((count / dates.length) * 100) : 0;
-          const barPct = Math.round((count / maxTrackCount) * 100);
+          const barPct = pct;
           return (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <div style={{ width: 150, flexShrink: 0, fontSize: 13, fontFamily: 'Newsreader, serif' }}>
