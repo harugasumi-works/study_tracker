@@ -10,9 +10,12 @@ function StudyTracker() {
     plugins, enabledPlugins, openPanels, menuTrackId, hoveredTrackId,
     dates, doneCountForSelected,
     setView, setMenuTrackId, setHoveredTrackId,
-    toggleDone, updateNote, addTrack, removeTrack,
+    toggleDone, updateNote, addTrack, removeTrack, updateTrackMinPerWeek,
     togglePluginForTrack, togglePanelOpen, shiftSelectedDate,
   } = useTrackerState();
+
+  const weekStats = loaded ? weeklyMinStats(history, tracks, todayStr) : [];
+  const weekStatsById = Object.fromEntries(weekStats.map((w) => [w.track.id, w]));
 
   if (!loaded) {
     return (
@@ -114,6 +117,19 @@ function StudyTracker() {
                   <div style={{ fontSize: 10, marginTop: 2, color: track.color, opacity: 0.85 }}>
                     {streak > 0 ? `${streak}-day streak` : '—'}
                   </div>
+                  {(weekStatsById[track.id]?.min || 0) > 0 && (
+                    <div
+                      style={{
+                        fontSize: 9,
+                        marginTop: 2,
+                        color: weekStatsById[track.id].met ? '#2F7D5C' : (weekStatsById[track.id].stillPossible ? '#8A6A2E' : '#B3261E'),
+                        opacity: 0.9,
+                      }}
+                    >
+                      {weekStatsById[track.id].count}/{weekStatsById[track.id].min} this wk
+                      {weekStatsById[track.id].met ? ' ✓' : (weekStatsById[track.id].stillPossible ? '' : ' ✗')}
+                    </div>
+                  )}
                   {trackEnabledPlugins.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
                       {trackEnabledPlugins.map((plugin) => {
@@ -371,7 +387,13 @@ function StudyTracker() {
       {view === 'analysis' && <Analysis history={history} todayStr={todayStr} tracks={tracks} />}
 
       {view === 'manage' && (
-        <Manage tracks={tracks} categories={CATEGORIES} onAdd={addTrack} onRemove={removeTrack} />
+        <Manage
+          tracks={tracks}
+          categories={CATEGORIES}
+          onAdd={addTrack}
+          onRemove={removeTrack}
+          onUpdateMinPerWeek={updateTrackMinPerWeek}
+        />
       )}
       </div>
     </div>

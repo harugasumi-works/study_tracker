@@ -1,13 +1,13 @@
 // App-wide constants. Pure data — no logic lives here.
 
 const DEFAULT_TRACKS = [
-  { id: 'it_passport', name: 'IT Passport', category: 'Core study', color: '#3B4C9E' },
-  { id: 'coding', name: 'Coding', category: 'Core study', color: '#2F7D5C' },
-  { id: 'jp_book', name: 'Japanese book reading', category: 'Sub study', color: '#9C3D54' },
-  { id: 'kanken', name: 'Kanken', category: 'Sub study', color: '#C08A2E' },
-  { id: 'schoo', name: 'Schoo.jp', category: 'Sub study', color: '#3E7C86' },
-  { id: 'coding_blog', name: 'Coding blog (Markdown)', category: 'Output', color: '#C1613B' },
-  { id: 'jp_blog', name: 'Japanese essay blog (朝刊太郎)', category: 'Output', color: '#6B4A8A' },
+  { id: 'it_passport', name: 'IT Passport', category: 'Core study', color: '#3B4C9E', minPerWeek: 5 },
+  { id: 'coding', name: 'Coding', category: 'Core study', color: '#2F7D5C', minPerWeek: 5 },
+  { id: 'jp_book', name: 'Japanese book reading', category: 'Sub study', color: '#9C3D54', minPerWeek: 5 },
+  { id: 'kanken', name: 'Kanken', category: 'Sub study', color: '#C08A2E', minPerWeek: 4 },
+  { id: 'schoo', name: 'Schoo.jp', category: 'Sub study', color: '#3E7C86', minPerWeek: 2 },
+  { id: 'coding_blog', name: 'Coding blog (Markdown)', category: 'Output', color: '#C1613B', minPerWeek: 1 },
+  { id: 'jp_blog', name: 'Japanese essay blog (朝刊太郎)', category: 'Output', color: '#6B4A8A', minPerWeek: 1 },
 ];
 
 const TRACK_COLOR_PALETTE = [

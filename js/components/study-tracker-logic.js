@@ -85,10 +85,10 @@ function useTrackerState() {
     });
   };
 
-  const addTrack = (name, category, color) => {
+  const addTrack = (name, category, color, minPerWeek) => {
     setTracks((prev) => {
       const id = uniqueTrackId(name, prev);
-      const next = [...prev, { id, name, category, color }];
+      const next = [...prev, { id, name, category, color, minPerWeek: minPerWeek || 0 }];
       persist(TRACKS_STORAGE_KEY, next);
       return next;
     });
@@ -97,6 +97,14 @@ function useTrackerState() {
   const removeTrack = (trackId) => {
     setTracks((prev) => {
       const next = prev.filter((t) => t.id !== trackId);
+      persist(TRACKS_STORAGE_KEY, next);
+      return next;
+    });
+  };
+
+  const updateTrackMinPerWeek = (trackId, minPerWeek) => {
+    setTracks((prev) => {
+      const next = prev.map((t) => (t.id === trackId ? { ...t, minPerWeek } : t));
       persist(TRACKS_STORAGE_KEY, next);
       return next;
     });
@@ -152,7 +160,7 @@ function useTrackerState() {
     // setters the view wires directly to onClick/onChange
     setView, setMenuTrackId, setHoveredTrackId,
     // action handlers
-    toggleDone, updateNote, addTrack, removeTrack,
+    toggleDone, updateNote, addTrack, removeTrack, updateTrackMinPerWeek,
     togglePluginForTrack, togglePanelOpen, shiftSelectedDate,
   };
 }

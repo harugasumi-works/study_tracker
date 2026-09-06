@@ -24,20 +24,24 @@ function linkBtnStyle(color, opacity) {
   };
 }
 
-function Manage({ tracks, categories, onAdd, onRemove }) {
+function Manage({ tracks, categories, onAdd, onRemove, onUpdateMinPerWeek }) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState(categories[0]);
   const [color, setColor] = useState(TRACK_COLOR_PALETTE[tracks.length % TRACK_COLOR_PALETTE.length]);
+  const [minPerWeek, setMinPerWeek] = useState(0);
   const [confirmRemoveId, setConfirmRemoveId] = useState(null);
 
   const handleAdd = (e) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
-    onAdd(trimmed, category, color);
+    onAdd(trimmed, category, color, minPerWeek);
     setName('');
+    setMinPerWeek(0);
     setColor(TRACK_COLOR_PALETTE[(tracks.length + 1) % TRACK_COLOR_PALETTE.length]);
   };
+
+  const clampMin = (v) => Math.max(0, Math.min(7, Number.isFinite(v) ? v : 0));
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -61,6 +65,17 @@ function Manage({ tracks, categories, onAdd, onRemove }) {
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: '1px solid #EDEFF2' }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Newsreader, serif' }}>{t.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, fontSize: 11, opacity: 0.6 }}>
+                    <span>min/wk</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={7}
+                      value={t.minPerWeek || 0}
+                      onChange={(e) => onUpdateMinPerWeek(t.id, clampMin(parseInt(e.target.value, 10)))}
+                      style={{ width: 40, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, padding: '3px 4px', border: '1px solid #E1E4EA', borderRadius: 4, background: '#FDFDFE', color: 'inherit', outline: 'none' }}
+                    />
+                  </div>
                   {confirmRemoveId === t.id ? (
                     <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                       <button onClick={() => { onRemove(t.id); setConfirmRemoveId(null); }} style={linkBtnStyle('#B3261E')}>
@@ -102,6 +117,17 @@ function Manage({ tracks, categories, onAdd, onRemove }) {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Min per week</label>
+          <input
+            type="number"
+            min={0}
+            max={7}
+            value={minPerWeek}
+            onChange={(e) => setMinPerWeek(clampMin(parseInt(e.target.value, 10)))}
+            style={{ ...inputStyle, width: 80 }}
+          />
         </div>
         <div style={{ marginBottom: 18 }}>
           <label style={labelStyle}>Color</label>

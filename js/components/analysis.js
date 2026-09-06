@@ -39,6 +39,37 @@ function Analysis({ history, todayStr, tracks }) {
       </div>
 
       <div style={{ marginBottom: 36 }}>
+        <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Weekly minimums (this week)</h2>
+        <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #E1E4EA', background: '#FFFFFF' }}>
+          {weeklyMinStats(history, tracks, todayStr)
+            .filter((w) => w.min > 0)
+            .sort((a, b) => (a.met === b.met ? 0 : a.met ? 1 : -1))
+            .map((w) => (
+              <div key={w.track.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: '1px solid #EDEFF2' }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: w.track.color, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Newsreader, serif' }}>{w.track.name}</div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    color: w.met ? '#2F7D5C' : (w.stillPossible ? '#8A6A2E' : '#B3261E'),
+                    opacity: 0.9,
+                  }}
+                >
+                  {w.count}/{w.min}
+                  {w.met ? ' · met ✓' : (w.stillPossible ? ` · ${w.remaining} more needed` : ' · missed this week')}
+                </div>
+              </div>
+            ))}
+          {weeklyMinStats(history, tracks, todayStr).filter((w) => w.min > 0).length === 0 && (
+            <div style={{ padding: 16, fontSize: 13, opacity: 0.5 }}>
+              No weekly minimums set yet — add them in Curriculum.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 36 }}>
         <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>By track</h2>
         {tracks.map((t) => {
           const count = perTrack[t.id];

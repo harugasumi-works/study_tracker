@@ -59,6 +59,43 @@ function computeStreak(history, trackId, todayStr) {
   return streak;
 }
 
+// Monday-start ISO week containing dateStr, as an array of date strings from
+// Monday up to (and including) dateStr. Used for weekly-minimum tracking.
+function currentWeekDates(dateStr) {
+  const d = parseLocal(dateStr);
+  const dow = d.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(d);
+  monday.setDate(monday.getDate() - mondayOffset);
+  const out = [];
+  for (let i = 0; i <= mondayOffset; i++) {
+    const cur = new Date(monday);
+    cur.setDate(cur.getDate() + i);
+    out.push(isoDate(cur));
+  }
+  return out;
+}
+
+// Per-track progress against each track's weekly minimum, for the current
+// (Monday-start) week only.
+function weeklyMinStats(history, tracks, todayStr) {
+  const weekDates = currentWeekDates(todayStr);
+  const daysLeft = 7 - weekDates.length; // days remaining after today, incl. today counted already
+  return tracks.map((t) => {
+    const min = t.minPerWeek || 0;
+    const count = weekDates.filter((d) => history[d]?.[t.id]?.done).length;
+    const remaining = Math.max(0, min - count);
+    return {
+      track: t,
+      count,
+      min,
+      met: count >= min,
+      remaining,
+      stillPossible: remaining <= daysLeft,
+    };
+  });
+}
+
 // Drop-in replacement for the Claude artifact storage API, backed by localStorage.
 const storage = {
   get: async (key) => {
