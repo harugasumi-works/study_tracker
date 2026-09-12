@@ -1,138 +1,596 @@
-function Analysis({ history, todayStr, tracks }) {
-  const [rangeDays, setRangeDays] = useState(30);
-  const dates = getLastNDates(rangeDays, todayStr);
-  const { perTrack, total, possible } = rangeStats(history, dates, tracks);
-  const catStats = categoryStats(history, dates, tracks);
-  const weeks = heatmapWeeks(history, todayStr, HEATMAP_WEEKS, tracks);
+function Analysis({
+  history,
+  todayStr,
+  tracks,
+  categories,
+}) {
+  const [rangeDays, setRangeDays] =
+    useState(30);
+
+  const dates = getLastNDates(
+    rangeDays,
+    todayStr
+  );
+
+  const {
+    perTrack,
+    total,
+    possible,
+  } = rangeStats(
+    history,
+    dates,
+    tracks
+  );
+
+  const catStats =
+    categoryStats(
+      history,
+      dates,
+      tracks,
+      categories
+    );
+
+  const weeks =
+    heatmapWeeks(
+      history,
+      todayStr,
+      HEATMAP_WEEKS,
+      tracks
+    );
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems:
+            'baseline',
+          justifyContent:
+            'space-between',
+          marginBottom: 24,
+          flexWrap:
+            'wrap',
+          gap: 12,
+        }}
+      >
         <div>
-          <div style={{ fontFamily: 'Newsreader, serif', fontSize: 28, fontStyle: 'italic' }}>
-            {total} <span style={{ fontSize: 16, fontStyle: 'normal', opacity: 0.5 }}>of {possible} sessions</span>
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.45, marginTop: 2 }}>
-            completed in the last {rangeDays} days
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => setRangeDays(opt.id)}
+          <div
+            style={{
+              fontFamily:
+                'Newsreader, serif',
+              fontSize: 28,
+              fontStyle:
+                'italic',
+            }}
+          >
+            {total}{' '}
+            <span
               style={{
-                fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: 11,
-                padding: '5px 10px',
-                borderRadius: 4,
-                border: `1px solid ${rangeDays === opt.id ? '#1B1F2A' : '#E1E4EA'}`,
-                background: rangeDays === opt.id ? '#1B1F2A' : 'transparent',
-                color: rangeDays === opt.id ? '#F5F6F8' : 'inherit',
-                opacity: rangeDays === opt.id ? 1 : 0.6,
-                cursor: 'pointer',
+                fontSize: 16,
+                fontStyle:
+                  'normal',
+                opacity: 0.5,
               }}
             >
-              {opt.label}
-            </button>
-          ))}
+              of {possible}{' '}
+              sessions
+            </span>
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              opacity: 0.45,
+              marginTop: 2,
+            }}
+          >
+            completed in
+            the last{' '}
+            {rangeDays}{' '}
+            days
+          </div>
+        </div>
+
+        <div
+          style={{
+            display:
+              'flex',
+            gap: 4,
+          }}
+        >
+          {RANGE_OPTIONS.map(
+            (opt) => (
+              <button
+                key={opt.id}
+                onClick={() =>
+                  setRangeDays(
+                    opt.id
+                  )
+                }
+                style={{
+                  fontFamily:
+                    'IBM Plex Mono, monospace',
+                  fontSize: 11,
+                  padding:
+                    '5px 10px',
+                  borderRadius: 4,
+                  border: `1px solid ${
+                    rangeDays ===
+                    opt.id
+                      ? '#1B1F2A'
+                      : '#E1E4EA'
+                  }`,
+                  background:
+                    rangeDays ===
+                    opt.id
+                      ? '#1B1F2A'
+                      : 'transparent',
+                  color:
+                    rangeDays ===
+                    opt.id
+                      ? '#F5F6F8'
+                      : 'inherit',
+                  opacity:
+                    rangeDays ===
+                    opt.id
+                      ? 1
+                      : 0.6,
+                  cursor:
+                    'pointer',
+                }}
+              >
+                {opt.label}
+              </button>
+            )
+          )}
         </div>
       </div>
 
-      <div style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Weekly minimums (this week)</h2>
-        <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #E1E4EA', background: '#FFFFFF' }}>
-          {weeklyMinStats(history, tracks, todayStr)
-            .filter((w) => w.min > 0)
-            .sort((a, b) => (a.met === b.met ? 0 : a.met ? 1 : -1))
+      <div
+        style={{
+          marginBottom: 36,
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 14,
+            opacity: 0.6,
+            marginBottom: 16,
+            fontWeight: 400,
+          }}
+        >
+          Weekly minimums
+          (this week)
+        </h2>
+
+        <div
+          style={{
+            borderRadius: 6,
+            overflow:
+              'hidden',
+            border:
+              '1px solid #E1E4EA',
+            background:
+              '#FFFFFF',
+          }}
+        >
+          {weeklyMinStats(
+            history,
+            tracks,
+            todayStr
+          )
+            .filter(
+              (w) => w.min > 0
+            )
+            .sort(
+              (a, b) =>
+                a.met === b.met
+                  ? 0
+                  : a.met
+                  ? 1
+                  : -1
+            )
             .map((w) => (
-              <div key={w.track.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: '1px solid #EDEFF2' }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: w.track.color, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Newsreader, serif' }}>{w.track.name}</div>
+              <div
+                key={w.track.id}
+                style={{
+                  display:
+                    'flex',
+                  alignItems:
+                    'center',
+                  gap: 12,
+                  padding:
+                    '10px 16px',
+                  borderTop:
+                    '1px solid #EDEFF2',
+                }}
+              >
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius:
+                      '50%',
+                    background:
+                      w.track
+                        .color,
+                    flexShrink: 0,
+                  }}
+                />
+
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 13,
+                    fontFamily:
+                      'Newsreader, serif',
+                  }}
+                >
+                  {w.track.name}
+                </div>
+
                 <div
                   style={{
                     fontSize: 11,
-                    fontFamily: 'IBM Plex Mono, monospace',
-                    color: w.met ? '#2F7D5C' : (w.stillPossible ? '#8A6A2E' : '#B3261E'),
+                    fontFamily:
+                      'IBM Plex Mono, monospace',
+                    color:
+                      w.met
+                        ? '#2F7D5C'
+                        : w.stillPossible
+                        ? '#8A6A2E'
+                        : '#B3261E',
                     opacity: 0.9,
                   }}
                 >
-                  {w.count}/{w.min}
-                  {w.met ? ' · met ✓' : (w.stillPossible ? ` · ${w.remaining} more needed` : ' · missed this week')}
+                  {w.count}/
+                  {w.min}
+                  {w.met
+                    ? ' · met ✓'
+                    : w.stillPossible
+                    ? ` · ${w.remaining} more needed`
+                    : ' · missed this week'}
                 </div>
               </div>
             ))}
-          {weeklyMinStats(history, tracks, todayStr).filter((w) => w.min > 0).length === 0 && (
-            <div style={{ padding: 16, fontSize: 13, opacity: 0.5 }}>
-              No weekly minimums set yet — add them in Curriculum.
+
+          {weeklyMinStats(
+            history,
+            tracks,
+            todayStr
+          ).filter(
+            (w) => w.min > 0
+          ).length === 0 && (
+            <div
+              style={{
+                padding: 16,
+                fontSize: 13,
+                opacity: 0.5,
+              }}
+            >
+              No weekly minimums set
+              yet — add them in
+              Curriculum.
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>By track</h2>
+      <div
+        style={{
+          marginBottom: 36,
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 14,
+            opacity: 0.6,
+            marginBottom: 16,
+            fontWeight: 400,
+          }}
+        >
+          By track
+        </h2>
+
         {tracks.map((t) => {
-          const count = perTrack[t.id];
-          const pct = dates.length ? Math.round((count / dates.length) * 100) : 0;
-          const barPct = pct;
+          const count =
+            perTrack[t.id];
+
+          const pct = dates.length
+            ? Math.round(
+                (count /
+                  dates.length) *
+                  100
+              )
+            : 0;
+
           return (
-            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-              <div style={{ width: 150, flexShrink: 0, fontSize: 13, fontFamily: 'Newsreader, serif' }}>
+            <div
+              key={t.id}
+              style={{
+                display:
+                  'flex',
+                alignItems:
+                  'center',
+                gap: 12,
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 150,
+                  flexShrink: 0,
+                  fontSize: 13,
+                  fontFamily:
+                    'Newsreader, serif',
+                }}
+              >
                 {t.name}
               </div>
-              <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#EDEFF2', overflow: 'hidden' }}>
-                <div style={{ width: `${barPct}%`, height: '100%', background: t.color, opacity: 0.85 }} />
-              </div>
-              <div style={{ width: 84, flexShrink: 0, textAlign: 'right', fontSize: 11, opacity: 0.55 }}>
-                {count}/{dates.length} · {pct}%
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
-      <div style={{ marginBottom: 36, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        {CATEGORIES.map((cat) => {
-          const s = catStats[cat];
-          const pct = s.possible ? Math.round((s.done / s.possible) * 100) : 0;
-          return (
-            <div key={cat} style={{ flex: '1 1 140px', border: '1px solid #E1E4EA', borderRadius: 6, padding: '14px 16px', background: '#FFFFFF' }}>
-              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 6 }}>{cat}</div>
-              <div style={{ fontFamily: 'Newsreader, serif', fontSize: 22 }}>{pct}%</div>
-              <div style={{ fontSize: 11, opacity: 0.4, marginTop: 2 }}>{s.done} of {s.possible}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Activity, last {HEATMAP_WEEKS} weeks</h2>
-        <div style={{ display: 'flex', gap: 3, overflowX: 'auto', paddingBottom: 4 }}>
-          {weeks.map((col, i) => (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {col.map((cell) => (
+              <div
+                style={{
+                  flex: 1,
+                  height: 8,
+                  borderRadius: 4,
+                  background:
+                    '#EDEFF2',
+                  overflow:
+                    'hidden',
+                }}
+              >
                 <div
-                  key={cell.dateStr}
-                  title={cell.count === null ? '' : `${cell.dateStr}: ${cell.count}/${tracks.length}`}
-                  style={{ width: 11, height: 11, borderRadius: 2, background: heatColor(cell.count, tracks.length) }}
+                  style={{
+                    width: `${pct}%`,
+                    height: '100%',
+                    background:
+                      t.color,
+                    opacity: 0.85,
+                  }}
                 />
-              ))}
+              </div>
+
+              <div
+                style={{
+                  width: 84,
+                  flexShrink: 0,
+                  textAlign:
+                    'right',
+                  fontSize: 11,
+                  opacity: 0.55,
+                }}
+              >
+                {count}/
+                {dates.length} ·{' '}
+                {pct}%
+              </div>
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          marginBottom: 36,
+          display:
+            'flex',
+          gap: 24,
+          flexWrap:
+            'wrap',
+        }}
+      >
+        {categories.map(
+          (cat) => {
+            const s =
+              catStats[cat] || {
+                done: 0,
+                possible: 0,
+              };
+
+            const pct =
+              s.possible
+                ? Math.round(
+                    (s.done /
+                      s.possible) *
+                      100
+                  )
+                : 0;
+
+            return (
+              <div
+                key={cat}
+                style={{
+                  flex:
+                    '1 1 140px',
+                  border:
+                    '1px solid #E1E4EA',
+                  borderRadius: 6,
+                  padding:
+                    '14px 16px',
+                  background:
+                    '#FFFFFF',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.5,
+                    marginBottom: 6,
+                  }}
+                >
+                  {cat}
+                </div>
+
+                <div
+                  style={{
+                    fontFamily:
+                      'Newsreader, serif',
+                    fontSize: 22,
+                  }}
+                >
+                  {pct}%
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 11,
+                    opacity: 0.4,
+                    marginTop: 2,
+                  }}
+                >
+                  {s.done}{' '}
+                  of{' '}
+                  {s.possible}
+                </div>
+              </div>
+            );
+          }
+        )}
+      </div>
+
+      <div
+        style={{
+          marginBottom: 36,
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 14,
+            opacity: 0.6,
+            marginBottom: 16,
+            fontWeight: 400,
+          }}
+        >
+          Activity, last{' '}
+          {HEATMAP_WEEKS}{' '}
+          weeks
+        </h2>
+
+        <div
+          style={{
+            display:
+              'flex',
+            gap: 3,
+            overflowX:
+              'auto',
+            paddingBottom: 4,
+          }}
+        >
+          {weeks.map(
+            (col, i) => (
+              <div
+                key={i}
+                style={{
+                  display:
+                    'flex',
+                  flexDirection:
+                    'column',
+                  gap: 3,
+                }}
+              >
+                {col.map(
+                  (cell) => (
+                    <div
+                      key={
+                        cell.dateStr
+                      }
+                      title={
+                        cell.count ===
+                        null
+                          ? ''
+                          : `${cell.dateStr}: ${cell.count}/${tracks.length}`
+                      }
+                      style={{
+                        width: 11,
+                        height: 11,
+                        borderRadius:
+                          2,
+                        background:
+                          heatColor(
+                            cell.count,
+                            tracks.length
+                          ),
+                      }}
+                    />
+                  )
+                )}
+              </div>
+            )
+          )}
         </div>
       </div>
 
       <div>
-        <h2 style={{ fontSize: 14, opacity: 0.6, marginBottom: 16, fontWeight: 400 }}>Current streaks</h2>
-        {tracks.slice()
-          .sort((a, b) => computeStreak(history, b.id, todayStr) - computeStreak(history, a.id, todayStr))
+        <h2
+          style={{
+            fontSize: 14,
+            opacity: 0.6,
+            marginBottom: 16,
+            fontWeight: 400,
+          }}
+        >
+          Current streaks
+        </h2>
+
+        {tracks
+          .slice()
+          .sort(
+            (a, b) =>
+              computeStreak(
+                history,
+                b.id,
+                todayStr
+              ) -
+              computeStreak(
+                history,
+                a.id,
+                todayStr
+              )
+          )
           .map((t) => {
-            const streak = computeStreak(history, t.id, todayStr);
+            const streak =
+              computeStreak(
+                history,
+                t.id,
+                todayStr
+              );
+
             return (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid #EDEFF2', fontSize: 13 }}>
-                <span>{t.name}</span>
-                <span style={{ color: t.color, opacity: streak > 0 ? 0.9 : 0.3, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }}>
-                  {streak > 0 ? `${streak} days` : '—'}
+              <div
+                key={t.id}
+                style={{
+                  display:
+                    'flex',
+                  justifyContent:
+                    'space-between',
+                  padding:
+                    '8px 0',
+                  borderTop:
+                    '1px solid #EDEFF2',
+                  fontSize: 13,
+                }}
+              >
+                <span>
+                  {t.name}
+                </span>
+
+                <span
+                  style={{
+                    color:
+                      t.color,
+                    opacity:
+                      streak > 0
+                        ? 0.9
+                        : 0.3,
+                    fontFamily:
+                      'IBM Plex Mono, monospace',
+                    fontSize: 12,
+                  }}
+                >
+                  {streak > 0
+                    ? `${streak} days`
+                    : '—'}
                 </span>
               </div>
             );

@@ -1,5 +1,4 @@
 // App-wide constants. Pure data — no logic lives here.
-
 const DEFAULT_TRACKS = [
   { id: 'it_passport', name: 'IT Passport', category: 'Core study', color: '#3B4C9E', minPerWeek: 5 },
   { id: 'coding', name: 'Coding', category: 'Core study', color: '#2F7D5C', minPerWeek: 5 },
@@ -15,13 +14,16 @@ const TRACK_COLOR_PALETTE = [
   '#4E7A3D', '#8A4A6B', '#3A6B8A', '#8A5A2E', '#5A5A8A',
 ];
 
-const CATEGORIES = ['Core study', 'Sub study', 'Output'];
+// Default category set used only for first-run/migration. Categories are now user-managed.
+const DEFAULT_CATEGORIES = ['Core study', 'Sub study', 'Output'];
+
 const DAYS_SHOWN = 14;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // localStorage keys
 const STORAGE_KEY = 'tracker-history';
 const TRACKS_STORAGE_KEY = 'tracker-tracks';
+const CATEGORIES_STORAGE_KEY = 'tracker-categories';
 const PLUGIN_ENABLED_KEY = 'tracker-plugin-enabled';
 
 // Analysis tab
@@ -30,4 +32,5 @@ const RANGE_OPTIONS = [
   { id: 30, label: '30 days' },
   { id: 90, label: '90 days' },
 ];
+
 const HEATMAP_WEEKS = 12;
