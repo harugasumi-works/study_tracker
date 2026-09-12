@@ -54,6 +54,7 @@ function useTrackerState() {
   const [view, setView] = useState('tracker');
   const [curriculumValid, setCurriculumValid] = useState(true);
   const [curriculumDirty, setCurriculumDirty] = useState(false);
+  const [curriculumJustSaved, setCurriculumJustSaved] = useState(false);
 
   // Plugin UI state. `enabledPlugins` (persisted) maps trackId -> [pluginId].
   const plugins = usePluginList();
@@ -283,6 +284,7 @@ function useTrackerState() {
       setCategories(normalizedCategories);
       setCurriculumDirty(false);
       setCurriculumValid(true);
+      setCurriculumJustSaved(true);
       setErrorMsg('');
 
       return true;
@@ -301,6 +303,10 @@ function useTrackerState() {
     (status) => {
       setCurriculumValid(!!status.valid);
       setCurriculumDirty(!!status.dirty);
+
+      if (status.dirty) {
+        setCurriculumJustSaved(false);
+      }
     },
     []
   );
@@ -427,6 +433,7 @@ function useTrackerState() {
 
     curriculumValid,
     curriculumDirty,
+    curriculumJustSaved,
 
     setView: requestView,
 

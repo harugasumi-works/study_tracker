@@ -36,6 +36,7 @@ function Manage({
   categories,
   onSave,
   saving,
+  justSaved,
   onStatusChange,
 }) {
   const [draftTracks, setDraftTracks] =
@@ -1023,16 +1024,25 @@ function Manage({
             padding:
               '8px 18px',
             borderRadius: 4,
-            border:
-              '1px solid #1B1F2A',
-            background:
-              status.valid &&
+            border: `1px solid ${
+              justSaved &&
               !saving
+                ? '#2F7D5C'
+                : '#1B1F2A'
+            }`,
+            background:
+              justSaved &&
+              !saving
+                ? '#2F7D5C'
+                : status.valid &&
+                  !saving
                 ? '#1B1F2A'
                 : '#E1E4EA',
             color:
-              status.valid &&
-              !saving
+              (justSaved &&
+                !saving) ||
+              (status.valid &&
+                !saving)
                 ? '#F5F6F8'
                 : '#9199A6',
             cursor:
@@ -1040,10 +1050,14 @@ function Manage({
               !saving
                 ? 'pointer'
                 : 'default',
+            transition:
+              'background 0.2s ease, border-color 0.2s ease',
           }}
         >
           {saving
             ? 'Saving…'
+            : justSaved
+            ? 'Saved ✓'
             : 'Save curriculum'}
         </button>
       </div>

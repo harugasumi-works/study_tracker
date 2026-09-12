@@ -22,6 +22,7 @@ function StudyTracker() {
     dates,
     doneCountForSelected,
     curriculumDirty,
+    curriculumJustSaved,
 
     setView,
     setMenuTrackId,
@@ -1432,6 +1433,9 @@ function StudyTracker() {
               saveCurriculum
             }
             saving={saving}
+            justSaved={
+              curriculumJustSaved
+            }
             onStatusChange={
               setCurriculumDraftStatus
             }
